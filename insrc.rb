@@ -22,7 +22,7 @@
 require 'tempfile'
 require 'optparse'
 
-options = { :prefix => 'insrc' }
+options = { :prefix => 'insrc', :dir => [] }
 OptionParser.new do |opts|
   opts.banner = "Usage: insrc.rb [options] [manifest]"
 
@@ -36,7 +36,13 @@ plus a gperf lookup function named PREFIX_lookup.
   opts.on('-p', '--prefix PREFIX', 'Prepend PREFIX to generated names') do |x|
     options[:prefix] = x
   end
+
+  opts.on('-d', '--dir DIR', 'Look for files under DIR') do |x|
+    options[:dir] << x
+  end
 end.parse!
+
+options[:dir] << '.' if options[:dir].empty?
 
 prefix = options[:prefix]
 manifest = ARGF.readlines.map(&:chomp)
@@ -47,7 +53,9 @@ tmp.puts  '%{'
 tmp.puts "#include <string.h>"
 tmp.puts "static const char * const #{prefix}_data[] = {"
 manifest.each_with_index do |path,idx|
-  tmp.puts "#{File.read(path).inspect},"
+  filename = options[:dir].map { |dir| File.join(dir, path) }.find { |fn| File.exists? fn }
+  fail "not found: #{path}" unless filename
+  tmp.puts "#{File.read(filename).inspect},"
   keywords << [path, idx]
 end
 tmp.puts "};"
